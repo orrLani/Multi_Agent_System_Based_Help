@@ -448,29 +448,21 @@ def main():
             if i['Position'] == 'pickup':
                 box_to_get = pickup
             else:
-                if i['Action'] == 'move':
-                    box_to_get = [1, 1, 0]
-                else:
-                    box_to_get = tower
-        else:
-            box_to_get = tower
-            
         try:
             x_pos = box_to_get[0]
             y_pos = box_to_get[1]
             z_pos = box_to_get[2]
             roll_deg = 0
-            pitch_deg = 45
+            pitch_deg = 90
             yaw_deg = 0
-            pose = [x_pos, y_pos, z_pos, roll_deg, pitch_deg, yaw_deg, attach_flag]
+            pose = [x_pos, y_pos, z_pos, roll_deg, pitch_deg, yaw_deg]
             a = AskOfHelp(pose, cyton_pose, pickup)
-            [attach_flag, k] = wapper_action(tutorial, i, a, pose, k)
+            wapper_action(tutorial, i, a, pose, box)
 
         except rospy.ROSInterruptException:
             return
         except KeyboardInterrupt:
             return
-	tutorial.go_to_joint_state()
 
 if __name__ == '__main__':
     main()
