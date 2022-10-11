@@ -1,8 +1,11 @@
 #!/usr/bin/env python
-
 ##
-
+import os
 import sys
+current = os.path.dirname(os.path.realpath(__file__))
+parent = os.path.dirname(current)
+sys.path.append(parent)
+sys.path.append(os.path.join(parent,'parser'))
 import copy
 import rospy
 import moveit_commander
@@ -22,56 +25,55 @@ import matplotlib.pyplot as plt
 from geometry_msgs.msg import PoseWithCovarianceStamped
 from get_blocks import get_block_pos
 from geometry_msgs.msg import PoseStamped
-from attach import attach 
+from attach import attach
 from detach import detach
+from PDDL_Planner import PlanToCommamndDict
 
 
 def reverse():
     print('in reverse')
     pub = rospy.Publisher('tb3_0/cmd_vel', Twist, queue_size=10)
     twist = Twist()
-    i = 0
+    j = 0
     r = rospy.Rate(10)
-    while i < 30:
-        twist.linear.x = -0.2
+    while j < 30:
+        twist.linear.x = -0.18
         twist.angular.z = 0
         pub.publish(twist)
         r.sleep()
-        i += 1
-    i = 0
+        j += 1
+    j = 0
     r = rospy.Rate(10)
-    while i < 30:
+    while j < 30:
         twist.linear.x = 0
         twist.angular.z = 0
         pub.publish(twist)
         r.sleep()
-        i += 1
+        j += 1
     return
 
 
-def close_gripper(self, goal = 0.02):
-        
+def close_gripper(self, goal=0.02):
     group = moveit_commander.MoveGroupCommander('gripper')
     joint_goal = group.get_current_joint_values()
-       
+
     joint_goal[0] = goal
-    joint_goal[1] = -goal 
+    joint_goal[1] = -goal
     group.go(joint_goal, wait=True)
     group.stop()
 
-def open_gripper(self, goal = 0):
-        
+
+def open_gripper(self, goal=0):
     group = moveit_commander.MoveGroupCommander('gripper')
     joint_goal = group.get_current_joint_values()
-       
+
     joint_goal[0] = goal
-    joint_goal[1] = goal 
+    joint_goal[1] = goal
     group.go(joint_goal, wait=True)
     group.stop()
 
 
 def all_close(goal, actual, tolerance):
-
     all_equal = True
     if type(goal) is list:
         for index in range(len(goal)):
@@ -124,12 +126,21 @@ class MoveGroupPythonIntefaceTutorial(object):
         self.eef_link = eef_link
         self.group_names = group_names
 
+    def open_grip(self):
+        open_gripper(self)
+        rospy.sleep(2)
+
+    def close_grip(self):
+        close_gripper(self)
+        rospy.sleep(2)
+
     def go_to_joint_state(self):
+
 
         group = self.group
         pose = group.get_current_pose(end_effector_link="plate_link")
         # print(pose)
-        
+
         joint_goal = group.get_current_joint_values()
         joint_goal[0] = 0
         joint_goal[1] = 0
@@ -218,6 +229,7 @@ class MoveGroupPythonIntefaceTutorial(object):
     def pick_n_place(self, pick, place):
 
         picked = self.go_to_pose_goal(pick)
+
         if picked:
             rospy.sleep(3)
             cartesian_plan, fraction = self.plan_cartesian_path(dist=-0.08)
@@ -233,6 +245,33 @@ class MoveGroupPythonIntefaceTutorial(object):
         else:
             return False
 
+    def pickup(self, pick):
+
+        picked = self.go_to_pose_goal(pick)
+
+        if picked:
+            rospy.sleep(3)
+            cartesian_plan, fraction = self.plan_cartesian_path(dist=-0.08)
+            self.display_trajectory(cartesian_plan)
+            self.execute_plan(cartesian_plan, open=False)
+            print('ready to place')
+            return True
+        else:
+            return False
+
+    def drop(self, place):
+
+        placed = self.go_to_pose_goal(place)
+
+        if placed:
+            rospy.sleep(3)
+            cartesian_plan, fraction = self.plan_cartesian_path(dist=0.08)
+            self.display_trajectory(cartesian_plan)
+            self.execute_plan(cartesian_plan, open=True)
+            print('box placed')
+            return True
+        else:
+            return False
 
 class MapService(object):
 
@@ -284,8 +323,8 @@ class AskOfHelp(object):
         # Move to position 0.5 on the y axis of the "map" coordinate frame
         goal.target_pose.pose.position.y = goal_pose[1]
         # No rotation of the mobile base frame w.r.t. map frame
-        #goal.target_pose.pose.orientation.z = goal_pose[3]
-        goal.target_pose.pose.orientation.w = np.arctan2(goal_pose[1],goal_pose[0])
+        # goal.target_pose.pose.orientation.w = goal_pose[3]
+        goal.target_pose.pose.orientation.w = np.arctan2(goal_pose[1], goal_pose[0])
         # Sends the goal to the action server.
         self.client.send_goal(goal)
         time.sleep(0.1)
@@ -308,14 +347,64 @@ class AskOfHelp(object):
             reverse()
 
 
-def main():
-    order = ['box_1', 'box_2', 'box_3']
-    tutorial = MoveGroupPythonIntefaceTutorial()
-    box_list = get_block_pos()
-    tutorial.go_to_joint_state()
+def wapper_action(tutorial, i, tb3, pose, box):
+    action = i['Action']
+    if action == 'move':
+        print("action move")
+        tb3.move_to_point(pose)
+    elif action == 'reverse':
+        print("action reverse")
+        reverse()
+        tb3.move_to_point(pose)
+    elif action == 'attach':
+        box = i['Position']
+        print("action attach")
+        temp = attach(box, "link", "tb3_0", "base_footprint")
+    elif action == 'dettach':
+        print("action detach")
+        box = i['Box']
+        temp = detach(box, "link", "tb3_0", "base_footprint")
+    elif action == 'pickup':
+        print("action pickup")
+        box_list = get_block_pos()
+        pick = box_list[box]
+        print(pick)
+        moved = tutorial.pickup(pick)
+        tutorial.go_to_joint_state()
+        tutorial.close_grip()
+    elif action in ['drop', 'firstdrop']:
+        print("action place")
+        print(pose)
+        moved = tutorial.drop(pose)
 
-    for box in order:
-        box_to_get = box_list[box]
+
+def main():
+    start_time = time.time()
+    try:
+    	domain = sys.argv[1]
+    	problem = sys.argv[2]
+    except IndexError:
+	domain = os.path.join(parent,'pddl','domain_cypton_tb3.pddl')
+	problem = os.path.join(parent,'pddl','problem_cypton_tb3.pddl')
+	assert os.path.isfile(domain) and os.path.isfile(problem)
+
+
+    plan = PlanToCommamndDict(domain, problem)
+    tutorial = MoveGroupPythonIntefaceTutorial()
+    tutorial.go_to_joint_state()
+    box_list = get_block_pos()
+    tower = [0.182, 0, 0]
+    cyton_pose = [0, 0, 0]
+    pickup = [-0.03, 0.2, 0] # [0, 0.17, 0]
+    for i in plan:
+        if i['Position'] in ['box_1', 'box_2', 'box_3']:
+            box = i['Box']
+            box_to_get = box_list[i['Position']]
+        elif i['Position'] in ['pickup', 'tower']:
+            if i['Position'] == 'pickup':
+                box_to_get = pickup
+            else:
+                box_to_get = tower
         try:
             x_pos = box_to_get[0]
             y_pos = box_to_get[1]
@@ -324,40 +413,13 @@ def main():
             pitch_deg = 90
             yaw_deg = 0
             pose = [x_pos, y_pos, z_pos, roll_deg, pitch_deg, yaw_deg]
-            pick = [pose[0], pose[1]]
-            place = [0.182, 0]
-            moved = tutorial.pick_n_place(pick, place)
-            r = rospy.Rate(1)
-            r.sleep()
-
-            if moved:
-                print('placed box:', box)
-            else:
-                print('Help!!!!!!')
-                cyton_pose = [0, 0, 0]
-                drop_pose = [0, 0.17]
-                pose_tb3 = box_to_get
-                roll = 0
-                pitch = 0
-                yaw = pose_tb3[2]
-
-                pose_tb3 = [x_pos, y_pos]
-                a = AskOfHelp(pose_tb3, cyton_pose, drop_pose)
-                a.move_to_point(pose_tb3)
-                temp = attach(box, "link", "tb3_0", "base_footprint")
-                a.move_to_point(drop_pose)
-                temp = detach(box, "link", "tb3_0", "base_footprint")
-                reverse()
-                a.move_to_point([0, 1.5])
-                pick = box_list[box]
-                print(pick)
-                moved = tutorial.pick_n_place(pick, place)
+            a = AskOfHelp(pose, cyton_pose, pickup)
+            wapper_action(tutorial, i, a, pose, box)
 
         except rospy.ROSInterruptException:
             return
         except KeyboardInterrupt:
             return
-
 
 if __name__ == '__main__':
     main()
