@@ -199,9 +199,9 @@ roslaunch new_moveit_config bringup_update.launch
 ```sh
 cd ~/catkin_ws
 source devel/setup.bash
-cd src/py_moveit/scripts
-chmod +x python_sim.py
-rosrun py_moveit python_sim.py
+cd src/Multi_Agent_System_Based_Help/py_moveit/scripts/code
+chmod +x py_cogntive_robots.py
+rosrun py_moveit py_cogntive_robots.py
 ```
 
 ------------
