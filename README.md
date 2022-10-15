@@ -168,40 +168,7 @@ git clone https://github.com/JenniferBuehler/gazebo-pkgs.git
 git clone https://github.com/pal-robotics/gazebo_ros_link_attacher.git
 git clone -b melodic-devel https://github.com/ROBOTIS-GIT/turtlebot3.git
 ```
-4\. Build the project
-```sh
-cd ~/catkin_ws
-catkin_make
-```
-#### Run the simulation
-5\. To use TB3 add to bash.rc or open two terminals and run in each: 
-```sh
-source devel/setup.bash
-export TURTLEBOT3_MODEL=burger 
-```
-6\. At the first terminal run:
-```sh
-roscore 
-```
-7\. At the secound terminal run:
-```sh
-roslaunch new_moveit_config multi_gazebo_update.launch 
-```
-8\. At the third terminal run:
-```sh
-roslaunch new_moveit_config bringup_update.launch
- 
-```
-#### python code
-9\. Open a new terminal and run:
 
-```sh
-cd ~/catkin_ws
-source devel/setup.bash
-cd src/Multi_Agent_System_Based_Help/py_moveit/scripts/code
-chmod +x py_cogntive_robots.py
-rosrun py_moveit py_cogntive_robots.py
-```
 
 ------------
 
